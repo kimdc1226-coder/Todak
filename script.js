@@ -241,19 +241,26 @@ const grandmothersData = [
 
 const tearTabsEl = document.getElementById("tear-tabs");
 const modal = document.getElementById("story-modal");
-const modalRecordLabel = document.getElementById("modal-record-label");
-const modalGrandmaName = document.getElementById("modal-grandma-name");
+const modalBookTag = document.getElementById("modal-book-tag");
+const modalPageLabel = document.getElementById("modal-page-label");
+const modalPageCount = document.getElementById("modal-page-count");
 const storyTabs = document.getElementById("story-tabs");
+const storybookContent = document.getElementById("storybook-content");
 const modalStoryTitle = document.getElementById("modal-story-title");
 const modalStoryBody = document.getElementById("modal-story-body");
+const storyPrevBtn = document.getElementById("story-prev");
+const storyNextBtn = document.getElementById("story-next");
+const petalsEl = document.getElementById("petals");
 
 const TEAR_DURATION_MS = 520;
+const FLIP_HALF_MS = 280;
 
 let activeGrandmotherIndex = 0;
 let activeStoryIndex = 0;
 let activeTearTab = null;
 let lastFocusedElement = null;
 let isAnimating = false;
+let isFlipping = false;
 
 function padRecord(index) {
   return String(index + 1).padStart(2, "0");
@@ -325,12 +332,20 @@ function renderStoryTabs(stories) {
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", index === activeStoryIndex ? "true" : "false");
     tab.innerHTML = `<span class="story-tab-index">${index + 1}</span>${story.title}`;
-    tab.addEventListener("click", () => showStory(index));
+    tab.addEventListener("click", () => goToStory(index));
     storyTabs.appendChild(tab);
   });
 }
 
-function showStory(storyIndex) {
+function updatePager() {
+  const total = grandmothersData[activeGrandmotherIndex].stories.length;
+  modalPageLabel.textContent = `이야기 ${activeStoryIndex + 1}`;
+  modalPageCount.textContent = `${activeStoryIndex + 1} / ${total}`;
+  storyPrevBtn.disabled = activeStoryIndex <= 0 || isFlipping;
+  storyNextBtn.disabled = activeStoryIndex >= total - 1 || isFlipping;
+}
+
+function applyStoryContent(storyIndex) {
   const grandma = grandmothersData[activeGrandmotherIndex];
   const story = grandma.stories[storyIndex];
   if (!story) return;
@@ -338,6 +353,7 @@ function showStory(storyIndex) {
   activeStoryIndex = storyIndex;
   modalStoryTitle.textContent = story.title;
   modalStoryBody.textContent = story.content;
+  updatePager();
 
   [...storyTabs.children].forEach((tab, index) => {
     const isActive = index === storyIndex;
@@ -345,7 +361,65 @@ function showStory(storyIndex) {
     tab.setAttribute("aria-selected", isActive ? "true" : "false");
   });
 
-  modal.querySelector(".modal-book")?.scrollTo({ top: 0, behavior: "smooth" });
+  storybookContent?.scrollTo({ top: 0 });
+}
+
+function clearFlipClasses() {
+  storybookContent.classList.remove(
+    "is-flipping",
+    "flip-out-next",
+    "flip-in-next",
+    "flip-out-prev",
+    "flip-in-prev"
+  );
+}
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+async function flipToStory(storyIndex, direction) {
+  if (!storybookContent || storyIndex === activeStoryIndex || isFlipping) return;
+
+  if (prefersReducedMotion()) {
+    applyStoryContent(storyIndex);
+    return;
+  }
+
+  isFlipping = true;
+  updatePager();
+  clearFlipClasses();
+  void storybookContent.offsetWidth;
+
+  const outClass = direction === "next" ? "flip-out-next" : "flip-out-prev";
+  const inClass = direction === "next" ? "flip-in-next" : "flip-in-prev";
+
+  storybookContent.classList.add("is-flipping", outClass);
+  await wait(FLIP_HALF_MS);
+
+  applyStoryContent(storyIndex);
+  storybookContent.classList.remove(outClass);
+  void storybookContent.offsetWidth;
+  storybookContent.classList.add(inClass);
+  await wait(FLIP_HALF_MS);
+
+  clearFlipClasses();
+  isFlipping = false;
+  updatePager();
+}
+
+function goToStory(storyIndex) {
+  if (storyIndex === activeStoryIndex || isFlipping) return;
+  const direction = storyIndex > activeStoryIndex ? "next" : "prev";
+  flipToStory(storyIndex, direction);
+}
+
+function showStory(storyIndex) {
+  applyStoryContent(storyIndex);
 }
 
 function openModal(grandmaIndex) {
@@ -355,11 +429,12 @@ function openModal(grandmaIndex) {
   activeGrandmotherIndex = grandmaIndex;
   activeStoryIndex = 0;
 
-  modalRecordLabel.textContent = `RECORD ${padRecord(grandmaIndex)}`;
-  modalGrandmaName.textContent = `${grandma.name} 할머니`;
+  modalBookTag.textContent = `${grandma.name} 할머니의 동화책 🌸`;
 
+  clearFlipClasses();
+  isFlipping = false;
   renderStoryTabs(grandma.stories);
-  showStory(0);
+  applyStoryContent(0);
 
   modal.hidden = false;
   requestAnimationFrame(() => {
@@ -391,10 +466,57 @@ modal.addEventListener("click", (event) => {
   }
 });
 
+storyPrevBtn.addEventListener("click", () => {
+  if (activeStoryIndex > 0) flipToStory(activeStoryIndex - 1, "prev");
+});
+
+storyNextBtn.addEventListener("click", () => {
+  const total = grandmothersData[activeGrandmotherIndex].stories.length;
+  if (activeStoryIndex < total - 1) flipToStory(activeStoryIndex + 1, "next");
+});
+
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && modal.classList.contains("is-open")) {
+  if (!modal.classList.contains("is-open")) return;
+
+  if (event.key === "Escape") {
     closeModal();
+    return;
+  }
+
+  if (event.key === "ArrowLeft") {
+    storyPrevBtn.click();
+  } else if (event.key === "ArrowRight") {
+    storyNextBtn.click();
   }
 });
 
+function createPetals() {
+  if (!petalsEl) return;
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion) {
+    petalsEl.replaceChildren();
+    return;
+  }
+
+  const isMobile = window.matchMedia("(max-width: 560px)").matches;
+  const count = isMobile ? 12 : 18;
+  const fragment = document.createDocumentFragment();
+
+  for (let i = 0; i < count; i += 1) {
+    const petal = document.createElement("span");
+    petal.className = "petal";
+    petal.style.left = `${Math.random() * 100}%`;
+    petal.style.setProperty("--size", `${10 + Math.random() * 12}px`);
+    petal.style.setProperty("--drift", `${Math.random() * 90 - 45}px`);
+    petal.style.animationDuration = `${11 + Math.random() * 12}s`;
+    petal.style.animationDelay = `${-Math.random() * 16}s`;
+    petal.style.opacity = String(0.35 + Math.random() * 0.3);
+    fragment.appendChild(petal);
+  }
+
+  petalsEl.replaceChildren(fragment);
+}
+
 renderTearTabs();
+createPetals();
