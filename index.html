@@ -42,7 +42,7 @@
           <span class="tear-line-label">✂ tear here</span>
         </div>
 
-        <!-- 뜯는 종이 탭 10개 -->
+        <!-- 이름 탭 (절취선 아래) -->
         <div class="tear-tabs" id="tear-tabs" role="group" aria-label="할머니 이름 탭"></div>
       </div>
     </article>
@@ -52,38 +52,20 @@
     </footer>
   </main>
 
-  <!-- 동화책 모달 -->
+  <!-- 겹친 메모지 모달 -->
   <div class="modal" id="story-modal" hidden>
     <div class="modal-backdrop" data-close-modal aria-label="닫기"></div>
 
-    <div class="storybook" role="dialog" aria-modal="true" aria-labelledby="modal-book-tag">
+    <div class="memo-modal" role="dialog" aria-modal="true" aria-labelledby="modal-book-tag">
       <button type="button" class="modal-close" data-close-modal aria-label="닫기">✕</button>
 
-      <p class="storybook-tag" id="modal-book-tag">할머니의 동화책 🌸</p>
+      <p class="memo-modal-tag" id="modal-book-tag">할머니의 이야기 🌸</p>
 
-      <div class="storybook-frame">
-        <div class="storybook-bloom storybook-bloom--tl" aria-hidden="true">🌸</div>
-        <div class="storybook-bloom storybook-bloom--br" aria-hidden="true">🌸</div>
-        <div class="storybook-spine" aria-hidden="true"></div>
+      <div class="memo-stack" id="memo-stack" aria-live="polite"></div>
 
-        <div class="storybook-pages">
-          <div class="story-tabs" id="story-tabs" role="tablist" aria-label="이야기 목록"></div>
-
-          <div class="storybook-flip-stage" id="storybook-flip-stage">
-            <article class="storybook-content" id="storybook-content">
-              <p class="storybook-page-label" id="modal-page-label">이야기 1</p>
-              <h3 class="story-title" id="modal-story-title"></h3>
-              <div class="story-body" id="modal-story-body"></div>
-            </article>
-          </div>
-
-          <div class="storybook-pager">
-            <button type="button" class="storybook-nav" id="story-prev" aria-label="이전 이야기">← 이전</button>
-            <span class="storybook-page-count" id="modal-page-count">1 / 4</span>
-            <button type="button" class="storybook-nav" id="story-next" aria-label="다음 이야기">다음 →</button>
-          </div>
-        </div>
-      </div>
+      <button type="button" class="memo-action-btn" id="memo-action-btn">
+        다음 이야기 뜯기 →
+      </button>
     </div>
   </div>
 

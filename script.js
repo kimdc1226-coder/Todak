@@ -242,29 +242,19 @@ const grandmothersData = [
 const tearTabsEl = document.getElementById("tear-tabs");
 const modal = document.getElementById("story-modal");
 const modalBookTag = document.getElementById("modal-book-tag");
-const modalPageLabel = document.getElementById("modal-page-label");
-const modalPageCount = document.getElementById("modal-page-count");
-const storyTabs = document.getElementById("story-tabs");
-const storybookContent = document.getElementById("storybook-content");
-const modalStoryTitle = document.getElementById("modal-story-title");
-const modalStoryBody = document.getElementById("modal-story-body");
-const storyPrevBtn = document.getElementById("story-prev");
-const storyNextBtn = document.getElementById("story-next");
+const memoStack = document.getElementById("memo-stack");
+const memoActionBtn = document.getElementById("memo-action-btn");
 const petalsEl = document.getElementById("petals");
 
 const TEAR_DURATION_MS = 520;
-const FLIP_HALF_MS = 280;
+const MEMO_TEAR_MS = 550;
 
 let activeGrandmotherIndex = 0;
 let activeStoryIndex = 0;
 let activeTearTab = null;
 let lastFocusedElement = null;
 let isAnimating = false;
-let isFlipping = false;
-
-function padRecord(index) {
-  return String(index + 1).padStart(2, "0");
-}
+let isMemoTearing = false;
 
 function renderTearTabs() {
   const fragment = document.createDocumentFragment();
@@ -281,8 +271,8 @@ function renderTearTabs() {
     const paper = document.createElement("button");
     paper.type = "button";
     paper.className = "tear-tab-paper";
-    paper.textContent = grandma.name;
     paper.setAttribute("aria-label", `${grandma.name} 할머니 이야기 뜯어 읽기`);
+    paper.innerHTML = `<span class="tear-tab-name">${grandma.name}</span>`;
     paper.addEventListener("click", () => tearAndOpen(index, wrap));
 
     wrap.append(stub, paper);
@@ -322,104 +312,85 @@ function restoreTearTab() {
   }, 180);
 }
 
-function renderStoryTabs(stories) {
-  storyTabs.replaceChildren();
-
-  stories.forEach((story, index) => {
-    const tab = document.createElement("button");
-    tab.type = "button";
-    tab.className = "story-tab" + (index === activeStoryIndex ? " is-active" : "");
-    tab.setAttribute("role", "tab");
-    tab.setAttribute("aria-selected", index === activeStoryIndex ? "true" : "false");
-    tab.innerHTML = `<span class="story-tab-index">${index + 1}</span>${story.title}`;
-    tab.addEventListener("click", () => goToStory(index));
-    storyTabs.appendChild(tab);
-  });
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
-function updatePager() {
-  const total = grandmothersData[activeGrandmotherIndex].stories.length;
-  modalPageLabel.textContent = `이야기 ${activeStoryIndex + 1}`;
-  modalPageCount.textContent = `${activeStoryIndex + 1} / ${total}`;
-  storyPrevBtn.disabled = activeStoryIndex <= 0 || isFlipping;
-  storyNextBtn.disabled = activeStoryIndex >= total - 1 || isFlipping;
-}
-
-function applyStoryContent(storyIndex) {
-  const grandma = grandmothersData[activeGrandmotherIndex];
-  const story = grandma.stories[storyIndex];
-  if (!story) return;
-
-  activeStoryIndex = storyIndex;
-  modalStoryTitle.textContent = story.title;
-  modalStoryBody.textContent = story.content;
-  updatePager();
-
-  [...storyTabs.children].forEach((tab, index) => {
-    const isActive = index === storyIndex;
-    tab.classList.toggle("is-active", isActive);
-    tab.setAttribute("aria-selected", isActive ? "true" : "false");
-  });
-
-  storybookContent?.scrollTo({ top: 0 });
-}
-
-function clearFlipClasses() {
-  storybookContent.classList.remove(
-    "is-flipping",
-    "flip-out-next",
-    "flip-in-next",
-    "flip-out-prev",
-    "flip-in-prev"
+function updateMemoActionButton() {
+  const stories = grandmothersData[activeGrandmotherIndex].stories;
+  const isLast = activeStoryIndex >= stories.length - 1;
+  memoActionBtn.disabled = isMemoTearing;
+  memoActionBtn.textContent = isLast ? "닫기" : "다음 이야기 뜯기 →";
+  memoActionBtn.setAttribute(
+    "aria-label",
+    isLast ? "이야기 모달 닫기" : "다음 이야기 메모지 뜯기"
   );
 }
 
-function wait(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+function refreshTopMemo() {
+  const sheets = [...memoStack.querySelectorAll(".memo-sheet:not(.is-torn)")];
+  sheets.forEach((sheet) => sheet.classList.remove("is-top"));
+  const top = sheets.sort(
+    (a, b) => Number(a.dataset.storyIndex) - Number(b.dataset.storyIndex)
+  )[0];
+  top?.classList.add("is-top");
 }
 
-function prefersReducedMotion() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function renderMemoStack(stories) {
+  const fragment = document.createDocumentFragment();
+  const total = stories.length;
+
+  // 아래(이야기 4)부터 위(이야기 1)로 쌓이도록: 인덱스가 작을수록 위에
+  stories.forEach((story, index) => {
+    const sheet = document.createElement("article");
+    sheet.className = `memo-sheet memo-sheet--${index % 4}`;
+    sheet.dataset.storyIndex = String(index);
+    sheet.style.zIndex = String(total - index);
+    sheet.innerHTML = `
+      <span class="memo-tape" aria-hidden="true"></span>
+      <p class="memo-label">이야기 ${index + 1}</p>
+      <h3 class="memo-title">${escapeHtml(story.title)}</h3>
+      <div class="memo-body">${escapeHtml(story.content)}</div>
+    `;
+    fragment.appendChild(sheet);
+  });
+
+  memoStack.replaceChildren(fragment);
+  refreshTopMemo();
 }
 
-async function flipToStory(storyIndex, direction) {
-  if (!storybookContent || storyIndex === activeStoryIndex || isFlipping) return;
+function tearTopMemo() {
+  if (isMemoTearing) return;
 
-  if (prefersReducedMotion()) {
-    applyStoryContent(storyIndex);
+  const stories = grandmothersData[activeGrandmotherIndex].stories;
+  const isLast = activeStoryIndex >= stories.length - 1;
+
+  if (isLast) {
+    closeModal();
     return;
   }
 
-  isFlipping = true;
-  updatePager();
-  clearFlipClasses();
-  void storybookContent.offsetWidth;
+  const topSheet = memoStack.querySelector(
+    `.memo-sheet[data-story-index="${activeStoryIndex}"]:not(.is-torn)`
+  );
+  if (!topSheet) return;
 
-  const outClass = direction === "next" ? "flip-out-next" : "flip-out-prev";
-  const inClass = direction === "next" ? "flip-in-next" : "flip-in-prev";
+  isMemoTearing = true;
+  updateMemoActionButton();
+  topSheet.classList.add("is-tearing-up");
 
-  storybookContent.classList.add("is-flipping", outClass);
-  await wait(FLIP_HALF_MS);
-
-  applyStoryContent(storyIndex);
-  storybookContent.classList.remove(outClass);
-  void storybookContent.offsetWidth;
-  storybookContent.classList.add(inClass);
-  await wait(FLIP_HALF_MS);
-
-  clearFlipClasses();
-  isFlipping = false;
-  updatePager();
-}
-
-function goToStory(storyIndex) {
-  if (storyIndex === activeStoryIndex || isFlipping) return;
-  const direction = storyIndex > activeStoryIndex ? "next" : "prev";
-  flipToStory(storyIndex, direction);
-}
-
-function showStory(storyIndex) {
-  applyStoryContent(storyIndex);
+  window.setTimeout(() => {
+    topSheet.classList.remove("is-tearing-up");
+    topSheet.classList.add("is-torn");
+    activeStoryIndex += 1;
+    refreshTopMemo();
+    isMemoTearing = false;
+    updateMemoActionButton();
+  }, MEMO_TEAR_MS);
 }
 
 function openModal(grandmaIndex) {
@@ -428,30 +399,30 @@ function openModal(grandmaIndex) {
 
   activeGrandmotherIndex = grandmaIndex;
   activeStoryIndex = 0;
+  isMemoTearing = false;
 
-  modalBookTag.textContent = `${grandma.name} 할머니의 동화책 🌸`;
-
-  clearFlipClasses();
-  isFlipping = false;
-  renderStoryTabs(grandma.stories);
-  applyStoryContent(0);
+  modalBookTag.textContent = `${grandma.name} 할머니의 이야기 🌸`;
+  renderMemoStack(grandma.stories);
+  updateMemoActionButton();
 
   modal.hidden = false;
   requestAnimationFrame(() => {
     modal.classList.add("is-open");
   });
   document.body.classList.add("is-modal-open");
-  modal.querySelector(".modal-close")?.focus();
+  memoActionBtn.focus();
 }
 
 function closeModal() {
   modal.classList.remove("is-open");
   document.body.classList.remove("is-modal-open");
+  isMemoTearing = false;
   restoreTearTab();
 
   window.setTimeout(() => {
     if (!modal.classList.contains("is-open")) {
       modal.hidden = true;
+      memoStack.replaceChildren();
     }
   }, 300);
 
@@ -466,13 +437,8 @@ modal.addEventListener("click", (event) => {
   }
 });
 
-storyPrevBtn.addEventListener("click", () => {
-  if (activeStoryIndex > 0) flipToStory(activeStoryIndex - 1, "prev");
-});
-
-storyNextBtn.addEventListener("click", () => {
-  const total = grandmothersData[activeGrandmotherIndex].stories.length;
-  if (activeStoryIndex < total - 1) flipToStory(activeStoryIndex + 1, "next");
+memoActionBtn.addEventListener("click", () => {
+  tearTopMemo();
 });
 
 document.addEventListener("keydown", (event) => {
@@ -480,13 +446,6 @@ document.addEventListener("keydown", (event) => {
 
   if (event.key === "Escape") {
     closeModal();
-    return;
-  }
-
-  if (event.key === "ArrowLeft") {
-    storyPrevBtn.click();
-  } else if (event.key === "ArrowRight") {
-    storyNextBtn.click();
   }
 });
 
