@@ -11,35 +11,46 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="bg-bloom" aria-hidden="true"></div>
+  <div class="bg-photo" aria-hidden="true">
+    <img class="bg-photo-image" src="bg-grandmothers.jpg" alt="">
+  </div>
+  <div class="bg-overlay" aria-hidden="true"></div>
 
   <main class="page">
-    <header class="archive-header">
-      <p class="archive-eyebrow">Oral History Archive</p>
-      <h1>토닥토닥 전시 이야기</h1>
-      <p class="archive-lead">카드를 눌러 이야기를 펼쳐 읽습니다.</p>
-    </header>
-
     <!--
-      ========================================
       [데이터 수정 안내]
-      할머니 이름·이야기 제목·본문은 script.js 안의
+      할머니 이름·이야기 제목·본문은 script.js 의
       grandmothersData 배열만 수정하면 됩니다.
-      ========================================
     -->
 
-    <section class="magazine" aria-label="할머니들의 기록 갤러리">
-      <div class="magazine-track" id="magazine-track">
-        <!-- 카드는 script.js에서 생성됩니다 -->
+    <article class="flyer" aria-label="토닥토닥 전시 전단지">
+      <div class="flyer-sheet">
+        <header class="flyer-header">
+          <p class="flyer-eyebrow">Oral History Archive</p>
+          <h1>토닥토닥 전시 이야기</h1>
+          <p class="flyer-subtitle-en">Todak Todak Exhibition | Oral History Archive</p>
+          <p class="flyer-subtitle-ko">
+            Preserving Memories, Sharing Stories<br>
+            <span>(기억을 품고, 이야기를 나누다)</span>
+          </p>
+          <p class="flyer-hint">아래 이름을 살짝 뜯어 이야기를 읽어 보세요</p>
+        </header>
+
+        <!-- 절취선 -->
+        <div class="tear-line" aria-hidden="true">
+          <span class="tear-line-label">✂ tear here</span>
+        </div>
+
+        <!-- 뜯는 종이 탭 10개 -->
+        <div class="tear-tabs" id="tear-tabs" role="group" aria-label="할머니 이름 탭"></div>
       </div>
-    </section>
+    </article>
 
     <footer class="archive-footer">
-      <p>토닥토닥 전시 이야기 · Oral History Archive</p>
+      <p>© Todak Todak Exhibition · Oral History Archive</p>
     </footer>
   </main>
 
-  <!-- 중앙 모달 (공통 1개) -->
   <div class="modal" id="story-modal" hidden>
     <div class="modal-backdrop" data-close-modal aria-label="닫기"></div>
     <div class="modal-book" role="dialog" aria-modal="true" aria-labelledby="modal-grandma-name">

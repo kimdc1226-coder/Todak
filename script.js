@@ -1,4 +1,4 @@
-/* 토닥토닥 전시 이야기 — 데이터 & 모달 탭 */
+/* 토닥토닥 전시 이야기 — 전단지 뜯기 탭 + 모달 */
 
 const grandmothersData = [
   {
@@ -239,7 +239,7 @@ const grandmothersData = [
   },
 ];
 
-const track = document.getElementById("magazine-track");
+const tearTabsEl = document.getElementById("tear-tabs");
 const modal = document.getElementById("story-modal");
 const modalRecordLabel = document.getElementById("modal-record-label");
 const modalGrandmaName = document.getElementById("modal-grandma-name");
@@ -247,43 +247,75 @@ const storyTabs = document.getElementById("story-tabs");
 const modalStoryTitle = document.getElementById("modal-story-title");
 const modalStoryBody = document.getElementById("modal-story-body");
 
+const TEAR_DURATION_MS = 520;
+
 let activeGrandmotherIndex = 0;
 let activeStoryIndex = 0;
+let activeTearTab = null;
 let lastFocusedElement = null;
+let isAnimating = false;
 
 function padRecord(index) {
   return String(index + 1).padStart(2, "0");
 }
 
-function renderCards() {
+function renderTearTabs() {
   const fragment = document.createDocumentFragment();
 
   grandmothersData.forEach((grandma, index) => {
-    const record = padRecord(index);
-    const panelClass = `panel--${record}`;
+    const wrap = document.createElement("div");
+    wrap.className = "tear-tab";
+    wrap.dataset.index = String(index);
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `panel ${panelClass}`;
-    button.setAttribute("aria-label", `${grandma.name} 할머니의 이야기 열기`);
-    button.dataset.index = String(index);
-    button.innerHTML = `
-      <span class="panel-face">
-        <span class="panel-label">RECORD ${record}</span>
-        <span class="panel-copy">
-          <span class="panel-name">${grandma.name}</span>
-        </span>
-      </span>
-    `;
+    const stub = document.createElement("div");
+    stub.className = "tear-tab-stub";
+    stub.setAttribute("aria-hidden", "true");
 
-    button.addEventListener("click", () => openModal(index));
-    fragment.appendChild(button);
+    const paper = document.createElement("button");
+    paper.type = "button";
+    paper.className = "tear-tab-paper";
+    paper.textContent = grandma.name;
+    paper.setAttribute("aria-label", `${grandma.name} 할머니 이야기 뜯어 읽기`);
+    paper.addEventListener("click", () => tearAndOpen(index, wrap));
+
+    wrap.append(stub, paper);
+    fragment.appendChild(wrap);
   });
 
-  track.replaceChildren(fragment);
+  tearTabsEl.replaceChildren(fragment);
 }
 
-function renderTabs(stories) {
+function tearAndOpen(grandmaIndex, tabEl) {
+  if (isAnimating || modal.classList.contains("is-open")) return;
+  if (tabEl.classList.contains("is-torn") || tabEl.classList.contains("is-tearing")) return;
+
+  isAnimating = true;
+  activeTearTab = tabEl;
+  lastFocusedElement = document.activeElement;
+
+  tabEl.classList.add("is-tearing");
+
+  window.setTimeout(() => {
+    tabEl.classList.remove("is-tearing");
+    tabEl.classList.add("is-torn");
+    openModal(grandmaIndex);
+    isAnimating = false;
+  }, TEAR_DURATION_MS);
+}
+
+function restoreTearTab() {
+  if (!activeTearTab) return;
+
+  const tab = activeTearTab;
+  activeTearTab = null;
+
+  // 살짝 딜레이 후 제자리로 (모달 닫힘과 겹치게)
+  window.setTimeout(() => {
+    tab.classList.remove("is-torn", "is-tearing");
+  }, 180);
+}
+
+function renderStoryTabs(stories) {
   storyTabs.replaceChildren();
 
   stories.forEach((story, index) => {
@@ -292,7 +324,6 @@ function renderTabs(stories) {
     tab.className = "story-tab" + (index === activeStoryIndex ? " is-active" : "");
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", index === activeStoryIndex ? "true" : "false");
-    tab.dataset.storyIndex = String(index);
     tab.innerHTML = `<span class="story-tab-index">${index + 1}</span>${story.title}`;
     tab.addEventListener("click", () => showStory(index));
     storyTabs.appendChild(tab);
@@ -305,9 +336,7 @@ function showStory(storyIndex) {
   if (!story) return;
 
   activeStoryIndex = storyIndex;
-
   modalStoryTitle.textContent = story.title;
-  // white-space: pre-wrap 으로 \n 줄바꿈 유지
   modalStoryBody.textContent = story.content;
 
   [...storyTabs.children].forEach((tab, index) => {
@@ -323,18 +352,16 @@ function openModal(grandmaIndex) {
   const grandma = grandmothersData[grandmaIndex];
   if (!grandma) return;
 
-  lastFocusedElement = document.activeElement;
   activeGrandmotherIndex = grandmaIndex;
   activeStoryIndex = 0;
 
   modalRecordLabel.textContent = `RECORD ${padRecord(grandmaIndex)}`;
   modalGrandmaName.textContent = `${grandma.name} 할머니`;
 
-  renderTabs(grandma.stories);
+  renderStoryTabs(grandma.stories);
   showStory(0);
 
   modal.hidden = false;
-  // 다음 프레임에 열어 페이드 인
   requestAnimationFrame(() => {
     modal.classList.add("is-open");
   });
@@ -345,6 +372,7 @@ function openModal(grandmaIndex) {
 function closeModal() {
   modal.classList.remove("is-open");
   document.body.classList.remove("is-modal-open");
+  restoreTearTab();
 
   window.setTimeout(() => {
     if (!modal.classList.contains("is-open")) {
@@ -369,4 +397,4 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-renderCards();
+renderTearTabs();
