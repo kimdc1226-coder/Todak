@@ -142,11 +142,11 @@ body.is-modal-open {
   position: relative;
   z-index: 1;
   text-align: center;
-  padding: 2.4rem 1.5rem 1.6rem;
+  padding: 2.25rem 1.25rem 1.5rem;
 }
 
 .flyer-eyebrow {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.65rem;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.18em;
@@ -155,17 +155,19 @@ body.is-modal-open {
 }
 
 .flyer-header h1 {
-  margin: 0 0 0.9rem;
+  margin: 0 0 0.7rem;
   font-family: var(--font-display);
-  font-size: 1.85rem;
+  font-size: clamp(1.4rem, 4.5vw, 2.2rem);
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1.35;
   color: #3a2a32;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+  word-break: keep-all;
 }
 
 .flyer-subtitle-en {
-  margin: 0 0 0.45rem;
+  margin: 0 0 0.4rem;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -760,11 +762,7 @@ body.is-modal-open {
   }
 
   .flyer-header {
-    padding: 3rem 2rem 1.85rem;
-  }
-
-  .flyer-header h1 {
-    font-size: 2.25rem;
+    padding: 2.85rem 2rem 1.75rem;
   }
 
   .tear-tab {
